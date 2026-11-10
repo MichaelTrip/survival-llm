@@ -15,7 +15,13 @@ def app_dir():
         return os.path.join(home, "Library", "Application Support", "Survival LLM")
     if os.name == "nt":
         return os.path.join(os.environ.get("APPDATA", home), "Survival LLM")
-    return os.path.join(home, ".survival-llm")
+    legacy = os.path.join(home, ".survival-llm")
+    if os.path.isdir(legacy):  # keep settings and unfinished downloads from earlier source installs
+        return legacy
+    data_home = os.environ.get("XDG_DATA_HOME", "")
+    if not os.path.isabs(data_home):
+        data_home = os.path.join(home, ".local", "share")
+    return os.path.join(data_home, "survival-llm")
 
 
 def chosen_folder(key):

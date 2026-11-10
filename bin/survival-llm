@@ -1,0 +1,36 @@
+#!/bin/sh
+# Run from any working directory; keep Python dependencies local to the checkout.
+set -eu
+REPO=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+case "${1:-}" in
+    --help|-h)
+        cat <<'EOF'
+Usage: bin/survival-llm [--browser | --window | --no-browser] [--port PORT]
+
+Opens Survival LLM in your browser. First launch creates .venv and installs
+requirements.txt (needs internet and Python 3.10+ with venv/pip support).
+Install Ollama separately to use AI; library search works without it.
+--window uses optional pywebview, falling back to the browser.
+--no-browser serves locally without opening a window. Ctrl+C stops the app.
+Set SURVIVAL_LLM_PYTHON to choose the Python used to create .venv.
+EOF
+        exit 0
+        ;;
+esac
+if [ ! -x "$REPO/.venv/bin/python" ]; then
+    "${SURVIVAL_LLM_PYTHON:-python3}" -c 'import sys; sys.exit("Python 3.10 or newer is required" if sys.version_info < (3, 10) else 0)'
+    "${SURVIVAL_LLM_PYTHON:-python3}" -m venv "$REPO/.venv"
+fi
+PYTHON="$REPO/.venv/bin/python"
+if ! "$PYTHON" -c 'import pypdf, truststore, send2trash' 2>/dev/null; then
+    if ! "$PYTHON" -m pip --version >/dev/null 2>&1; then
+        "$PYTHON" -m ensurepip
+    fi
+    "$PYTHON" -m pip install -r "$REPO/requirements.txt"
+fi
+MODE=--browser
+case "${1:-}" in
+    --window) MODE=; shift ;;
+    --browser|--no-browser) MODE=$1; shift ;;
+esac
+exec "$PYTHON" "$REPO/app/server.py" ${MODE:+"$MODE"} "$@"

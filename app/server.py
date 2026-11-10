@@ -105,14 +105,7 @@ DISK_MARGIN_GB = 5  # keep this much free after a download
 MANIFEST_URL = os.environ.get("SURVIVAL_LLM_MANIFEST") or \
     "https://anonnerdfrenzy.github.io/survival-llm/library-packs.json"
 
-if os.environ.get("SURVIVAL_LLM_APP_DIR"):  # another settings folder, such as the dev copy's (bin/dev)
-    APP_DIR = os.environ["SURVIVAL_LLM_APP_DIR"]
-elif sys.platform == "darwin":
-    APP_DIR = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Survival LLM")
-elif os.name == "nt":
-    APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "Survival LLM")
-else:
-    APP_DIR = os.path.join(os.path.expanduser("~"), ".survival-llm")
+APP_DIR = search.app_dir()
 STATE = os.path.join(APP_DIR, "server.json")
 CUSTOM_PROMPT = os.path.join(APP_DIR, "instructions.txt")  # the person's own edit of the AI's instructions
 # The person's own files: a folder they can see, beside the library folder rather than in it (installing a library
@@ -293,7 +286,7 @@ def my_name(path):
 
 
 def to_trash(path):
-    """Move a file to the Trash (Mac) or Recycle Bin (Windows), so removing one of their files can be undone."""
+    """Move a file to the desktop's Trash or Recycle Bin, so removal can be undone."""
     if sys.platform == "darwin":
         try:
             from Foundation import NSURL, NSFileManager  # part of pywebview's macOS dependencies
@@ -312,7 +305,11 @@ def to_trash(path):
         subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script], check=True, timeout=60,
                        env={**os.environ, "SURVIVAL_LLM_TRASH": path}, creationflags=0x08000000)  # no console window
     else:
-        os.remove(path)
+        try:
+            from send2trash import send2trash
+        except ImportError as exc:
+            raise OSError("Trash support is missing. Install requirements.txt and try again.") from exc
+        send2trash(os.path.abspath(path))
 
 
 def open_folder(path):
@@ -367,6 +364,7 @@ def disk_free_gb(path=None):
 
 
 def system_key():
+    # Linux uses the same portable Ollama models and PC recommendations as Windows.
     return "mac" if sys.platform == "darwin" else "win"
 
 
@@ -2135,7 +2133,7 @@ if __name__ == "__main__":
         threading.Thread(target=run_setup, daemon=True).start()
     try:
         if headless or use_browser:
-            if use_browser:
+            if use_browser and not headless:
                 threading.Timer(0.5, webbrowser.open, args=(url,)).start()
             server.serve_forever()
         else:

@@ -30,8 +30,26 @@ your computer and internet speed (the biggest AI model is 80 GB); you only click
 2. Open the extracted **Survival LLM** folder and double-click **Survival LLM.bat**. If Windows says it protected
    your PC, click **More info**, then **Run anyway**.
 
+**Linux** (run from source, Python 3.10 or newer)
+1. Clone or download this repository and open a terminal in its folder.
+2. Run `./bin/survival-llm`. On first launch it creates a local `.venv` and installs the Python dependencies;
+   this step needs internet. If Python reports that `venv` or `ensurepip` is missing, install your distribution's
+   Python venv/pip package and run the command again. Set `SURVIVAL_LLM_PYTHON=/path/to/python3` to choose Python.
+3. To use AI, install [Ollama](https://ollama.com/download/linux) and start it (`ollama serve` if it isn't already
+   running as a service). The app also tries to start an `ollama` executable found on your `PATH`.
+4. The app opens in your browser and offers the model and library downloads below. Keep the terminal open;
+   press Ctrl+C there to stop it. Later starts work offline once the dependencies, model and library are installed.
+
+`./bin/survival-llm --no-browser` starts only the local server (it prints its address).
+`./bin/survival-llm --port 8766` chooses another port. The browser interface supports chat, library search,
+file uploads, memory and settings; folder selection asks for a path. For an optional native window, run
+`./.venv/bin/python -m pip install 'pywebview[qt]'`, then `./bin/survival-llm --window`
+(see [pywebview's Linux dependencies](https://pywebview.flowrl.com/guide/installation.html#linux)).
+There is no Linux binary download or automatic app replacement; update the source with `git pull`.
+
 **Then** the app opens in its own window and walks you through setup:
 1. **AI engine:** built into the Mac app. On Windows, one click downloads it (Ollama, 1.6 GB).
+   On Linux, use a separately installed Ollama.
 2. **AI model:** it suggests the best one for your computer's memory (below) and downloads it.
 3. **Library:** "Everything" (8.8 GB download) or "Essentials" (1.3 GB, without Wikipedia and iFixit).
 
@@ -46,6 +64,10 @@ Switch or move the library) shows where the library is: in `~/Survival LLM Libra
 in the app's settings folder unless you moved it. Your own files are in `~/Survival LLM Files` unless you picked
 another folder; keep it if you want them. The app's own settings are in `~/Library/Application Support/Survival LLM`
 on a Mac, and in `%APPDATA%\Survival LLM` plus the AI engine and library in `%LOCALAPPDATA%\Survival LLM` on Windows.
+On Linux, settings, memory, the file index and the library are in `$XDG_DATA_HOME/survival-llm`
+(default `~/.local/share/survival-llm`). An existing `~/.survival-llm` folder continues to be used instead.
+`SURVIVAL_LLM_APP_DIR` overrides this location on all systems. Delete the source folder to remove the Linux app
+and its local Python environment; a separately installed Ollama is managed separately.
 
 ## Which model your computer gets
 
@@ -55,7 +77,7 @@ The app checks your memory and suggests a model. More memory, smarter model.
 |---|---|---|
 | Mac with 128 GB or more | NVIDIA Nemotron 3.5 Super (`nemotron-3.5-super:120b-a12b-nvfp4`) | 80 GB |
 | Mac with 32-96 GB | Qwen3.8 27B (`qwen3.8:27b-mlx`) | 18 GB |
-| Windows PC with 32 GB or more | NVIDIA Nemotron 3.5 Lightning (`nemotron-3.5-lightning:30b-a3b`) | 25 GB |
+| Windows or Linux PC with 32 GB or more | NVIDIA Nemotron 3.5 Lightning (`nemotron-3.5-lightning:30b-a3b`) | 25 GB |
 | Mac or PC with 16-31 GB | IBM Granite 4.2 8B (`granite4.2:8b`) | 6 GB |
 
 Nemotron Super needs 128 GB because macOS lets the graphics side use only about three quarters of memory.
@@ -123,11 +145,13 @@ your question ─► local model (Ollama) ─► search_library ─► SQLite fu
 - `library/search.py` searches `index.sqlite` (FTS5, BM25 ranking over ~1,500-character passages, official sources ranked higher) and reads the plain-text Markdown shards.
 - `memory.py` keeps the AI's notes about the person (`survival-llm-memory.txt`, with the app's settings) and, while the person allows it, `core.py` gives the model one short extra turn after answers to messages about the person or their family, to say what to remember, change or forget (a JSON reply the app checks and applies). The notes, today's date and the names of the person's files are added after the instructions when a chat starts.
 - `library/myfiles.py` reads the person's own files into a small index of their own (kept with the app's settings) and searches it together with the library.
-- Everything except Ollama, the app window (pywebview), PDF reading (pypdf) and checking web certificates with the system's own store (truststore) is the Python standard library.
+- Everything except Ollama, the optional app window (pywebview), PDF reading (pypdf), Linux Trash support (Send2Trash) and checking web certificates with the system's own store (truststore) is the Python standard library.
 
 ## Run from source
 
 ```bash
+./bin/survival-llm             # Linux: creates .venv as needed and opens the browser
+python3 -m pip install -r requirements.txt  # dependencies for manual source runs (use a virtual environment)
 python3 app/server.py          # the app in its own window (needs `pip install pywebview pypdf truststore`; else it uses your browser)
 python3 app/server.py --browser                     # in your web browser instead
 python3 chat.py "How long is fridge food safe in a blackout?"   # terminal; --model NAME picks a model
@@ -136,6 +160,7 @@ python3 chat.py "How long is fridge food safe in a blackout?"   # terminal; --mo
 The library is looked up at `$SURVIVAL_LLM_LIBRARY`, then the folder picked in the app (`library_dir` in its
 `settings.json`), then `~/Survival LLM Library`, then `library.noindex/` next to the code; a new one goes in the app's
 settings folder (`Library.noindex` on a Mac, `%LOCALAPPDATA%\Survival LLM\Library` on Windows).
+On Linux a new library goes in `Library/` under the data folder described above.
 Without a built-in engine, the app uses an Ollama you have installed (`ollama serve`).
 
 `python3 tests/run_all.py` checks memory and the handling of what models write (forget requests, notes about different
